@@ -97,7 +97,7 @@ Se rileva un ostacolo frontale ravvicinato, il robot arretra di `4.5 cm` (sottra
 
 I sensori IR monitorano passivamente il pavimento. Non appena intercettano l'unico nastro nero di fine percorso, il robot arresta i motori, notifica il completamento e trasmette il segnale di traguardo alla dashboard.
 
-5 - **Pulizia Automatica della Traiettoria (Ray Casting in-browser):** 
+**Pulizia Automatica della Traiettoria (Ray Casting in-browser):** 
 
 La dashboard web traccia la scia del robot e rimuove in automatico tutti i punti di impatto registrati nel raggio di 9 cm dal passaggio, garantendo uno spazio centrale perfettamente sgombro da punti fantasma o artefatti spuri, evidenziando in modo pulito e continuo esclusivamente i muri perimetrali esterni del percorso.
 
