@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SLAM Radar 2D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #090d16;
+      color: #e2e8f0;
+      overflow-x: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-track { background: #0f172a; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
+    
+    .radar-glow {
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.12), inset 0 0 25px rgba(16, 185, 129, 0.06);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP HEADER -->
+  <header class="bg-slate-900/90 border-b border-slate-800 px-4 py-3 sticky top-0 z-30 backdrop-blur-md">
+    <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+          <svg class="w-6 h-6 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold tracking-tight text-white">SLAM RADAR 2D</h1>
+            <span id="statusBadge" class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+              In attesa di dati
+            </span>
+          </div>
+          <p class="text-xs text-slate-400"> </p>
+        </div>
+      </div>
+
+      <!-- Main Action Buttons -->
+      <div class="flex flex-wrap items-center gap-2">
+        
+        <!-- Controllo Wi-Fi Arduino R4 + Start/Stop -->
+        <div class="flex items-center gap-1.5 bg-slate-950/90 border border-slate-800 rounded-xl p-1 shadow-inner">
+          <input id="inpRobotIP" type="text" placeholder="IP Robot (es. 192.168.1.120)" class="bg-transparent px-2.5 py-1 text-xs mono text-emerald-300 focus:outline-none w-40 sm:w-44 select-text" value="">
+          <button id="btnToggleWifiPoll" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition shadow-md shadow-emerald-900/30">
+            Connetti Wi-Fi
+          </button>
+          <button id="btnWifiStart" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition" title="Avvia esplorazione">
+            ▶ Start
+          </button>
+          <button id="btnWifiStop" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-md shadow-rose-900/40" title="Ferma subito i motori">
+            ⏹ STOP
+          </button>
+        </div>
+
+        <button id="btnConnectSerial" class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs sm:text-sm transition">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          <span id="btnConnectText">USB / BT</span>
+        </button>
+
+        <button id="btnSimulate" class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs sm:text-sm transition shadow-lg shadow-indigo-900/30">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span id="btnSimulateText">Simula Labirinto</span>
+        </button>
+
+        <button id="btnExportPNG" class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs sm:text-sm transition">
+          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Esporta PNG
+        </button>
+
+        <button id="btnClearMap" class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-rose-950/60 hover:bg-rose-900/70 text-rose-300 border border-rose-800/60 font-medium text-xs sm:text-sm transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          Azzera Mappa
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- NOTIFICATION BANNER -->
+  <div id="toastBanner" class="hidden fixed bottom-5 right-5 z-50 max-w-md bg-slate-900 border border-emerald-500/50 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+    <div id="toastIcon" class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></div>
+    <p id="toastMessage" class="text-xs sm:text-sm"></p>
+  </div>
+
+  <!-- MAIN WORKSPACE -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+    <!-- LEFT / CENTER: 2D SLAM CANVAS -->
+    <div class="lg:col-span-8 flex flex-col gap-3">
+      <div class="relative flex-1 min-h-[480px] sm:min-h-[620px] bg-[#060b11] rounded-2xl border border-emerald-500/30 radar-glow overflow-hidden flex flex-col">
+        
+        <!-- Overlay Telemetry Bar -->
+        <div class="absolute top-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+          <div class="flex flex-wrap items-center gap-2 bg-slate-900/85 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl pointer-events-auto">
+            <div class="text-xs">
+              <span class="text-slate-400">Posizione X:</span>
+              <span id="statX" class="mono font-semibold text-emerald-400">0.0 cm</span>
+            </div>
+            <span class="text-slate-700">|</span>
+            <div class="text-xs">
+              <span class="text-slate-400">Posizione Y:</span>
+              <span id="statY" class="mono font-semibold text-emerald-400">0.0 cm</span>
+            </div>
+            <span class="text-slate-700">|</span>
+            <div class="text-xs">
+              <span class="text-slate-400">Angolo θ:</span>
+              <span id="statTheta" class="mono font-semibold text-amber-400">90°</span>
+            </div>
+            <span class="text-slate-700">|</span>
+            <div class="text-xs">
+              <span class="text-slate-400">Punti / Muri:</span>
+              <span id="statWalls" class="mono font-semibold text-sky-400">0 / 0</span>
+            </div>
+          </div>
+
+          <!-- Zoom & View Controls -->
+          <div class="flex items-center gap-1 bg-slate-900/85 backdrop-blur-md border border-slate-800 p-1 rounded-xl pointer-events-auto">
+            <button id="btnZoomIn" title="Ingrandisci" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-300 text-xs font-bold">+</button>
+            <button id="btnZoomOut" title="Rimpicciolisci" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-300 text-xs font-bold">−</button>
+            <button id="btnCenterView" title="Centra sul Robot" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-emerald-400 text-xs font-medium">Centra</button>
+          </div>
+        </div>
+
+        <!-- THE INTERACTIVE 2D MAP CANVAS -->
+        <canvas id="slamCanvas" class="w-full h-full flex-1 cursor-grab active:cursor-grabbing touch-none"></canvas>
+
+        <!-- Bottom Legend Overlay -->
+        <div class="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none text-[11px] text-slate-400">
+          <div class="flex flex-wrap items-center gap-3 bg-slate-900/85 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-cyan-400 inline-block"></span> Pareti rilevate (Linee)</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span> Punto impatto US</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 border-b border-dashed border-amber-400 inline-block"></span> Traiettoria 4WD</span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500/30 border border-emerald-400 inline-block"></span> Robot 4WD</span>
+          </div>
+          <div class="bg-slate-900/85 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl mono">
+            Trascina per muovere • Rotellina per Zoom • 1 Quadrato = 20 cm
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDEBAR (Senza barre di regolazione) -->
+    <div class="lg:col-span-4 flex flex-col gap-4 z-20" onmousedown="event.stopPropagation()" onmousemove="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchmove="event.stopPropagation()">
+
+      <!-- Pannello Stato / Livelli visivi -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3.5">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+          </svg>
+          Visualizzazione Mappa
+        </h2>
+
+        <div class="grid grid-cols-2 gap-2 pt-1 text-xs">
+          <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+            <input type="checkbox" id="chkShowRays" checked class="accent-emerald-500 rounded">
+            Mostra raggi sonar
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+            <input type="checkbox" id="chkConnectGlobal" checked class="accent-cyan-500 rounded">
+            Unisci tra scansioni
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+            <input type="checkbox" id="chkShowPoints" checked class="accent-emerald-500 rounded">
+            Mostra punti impatto
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+            <input type="checkbox" id="chkAutoFollow" checked class="accent-amber-500 rounded">
+            Segui robot
+          </label>
+        </div>
+      </div>
+
+      <!-- MANUAL COMMAND / TELEMETRY CONSOLE -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex-1 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-sky-400">Console Telemetria Live</h2>
+          <button id="btnAddSamplePacket" class="text-xs text-sky-400 hover:text-sky-300 underline">
+            + Invia pacchetto test
+          </button>
+        </div>
+
+        <p class="text-xs text-slate-400">
+          Struttura stringa: <code class="mono text-[11px] text-emerald-300 bg-slate-950 px-1.5 py-0.5 rounded">MAP:X,Y,Angolo|Servo°:cm|...</code>
+        </p>
+
+        <textarea id="txtSerialInput" rows="2" wrap="off" placeholder="Incolla qui stringhe MAP:... per disegnarle sulla mappa" class="w-full rounded-xl bg-slate-950 border border-slate-800 p-2.5 text-xs mono text-emerald-300 focus:outline-none focus:border-emerald-500 select-text overflow-x-auto whitespace-pre"></textarea>
+
+        <div class="flex items-center justify-between gap-2">
+          <button id="btnParseManual" class="flex-1 py-2 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs transition">
+            Disegna Stringa sulla Mappa
+          </button>
+          <button id="btnCopyLogs" class="py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-medium text-xs transition" title="Copia tutte le letture ricevute">
+            Copia Log
+          </button>
+        </div>
+
+        <div class="mt-1 flex-1 flex flex-col min-h-[180px]">
+          <div class="text-[11px] text-slate-400 mb-1 flex justify-between">
+            <span>Ultime letture ricevute (scorri in orizzontale ↔):</span>
+            <span id="lblPacketCount" class="mono text-slate-300">0 scansioni</span>
+          </div>
+          <div id="serialLogBox" class="flex-1 max-h-[290px] overflow-y-auto overflow-x-auto rounded-xl bg-slate-950 border border-slate-800/90 p-2.5 mono text-[11px] text-slate-400 space-y-1.5 select-text">
+            <div class="text-slate-600 italic">In attesa di stringhe MAP:... da Wi-Fi, USB o Simulatore...</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // =========================================================================
+    // STATO DELL'APPLICAZIONE SLAM 2D
+    // =========================================================================
+    const state = {
+      robot: { x: 0, y: 0, theta: 90 },
+      trajectory: [{ x: 0, y: 0 }],
+      scans: [],          
+      allWallPoints: [],  
+      activeRays: [],     
+      rawLogLines: [],    
+      
+      // Parametri fissi ottimizzati
+      wallThresholdCm: 35,
+      maxRangeCm: 32,
+      showRays: true,
+      connectGlobal: true,
+      showPoints: true,
+      autoFollow: true,
+
+      camera: {
+        offsetX: 0,
+        offsetY: 0,
+        scale: 3.2,
+        isDragging: false,
+        dragStartX: 0,
+        dragStartY: 0
+      },
+
+      simTimer: null,
+      simStepIndex: 0,
+      serialPort: null,
+      serialReader: null,
+      wifiTimer: null,
+      lastWifiScanId: -1,
+      isSendingCommand: false
+    };
+
+    const canvas = document.getElementById('slamCanvas');
+    const ctx = canvas.getContext('2d');
+    const statX = document.getElementById('statX');
+    const statY = document.getElementById('statY');
+    const statTheta = document.getElementById('statTheta');
+    const statWalls = document.getElementById('statWalls');
+    const serialLogBox = document.getElementById('serialLogBox');
+    const lblPacketCount = document.getElementById('lblPacketCount');
+    const statusBadge = document.getElementById('statusBadge');
+
+    let toastTimeout = null;
+    function showToast(msg, isError = false) {
+      const banner = document.getElementById('toastBanner');
+      const icon = document.getElementById('toastIcon');
+      const text = document.getElementById('toastMessage');
+      text.textContent = msg;
+      icon.className = `w-2.5 h-2.5 rounded-full shrink-0 ${isError ? 'bg-rose-500' : 'bg-emerald-400'}`;
+      banner.classList.remove('hidden');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => banner.classList.add('hidden'), 4000);
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      renderMap();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function worldToScreen(wx, wy) {
+      const cx = canvas.width / 2 + state.camera.offsetX;
+      const cy = canvas.height / 2 + state.camera.offsetY;
+      return {
+        x: cx + wx * state.camera.scale,
+        y: cy - wy * state.camera.scale 
+      };
+    }
+
+    // =========================================================================
+    // PULIZIA AUTOMATICA DELLO SPAZIO LIBERO LUNGO LA TRAIETTORIA
+    // =========================================================================
+    function cleanFreeSpaceByTrajectory() {
+      const radius = 9; 
+      for (const scan of state.scans) {
+        scan.points = scan.points.filter(pt => {
+          for (const traj of state.trajectory) {
+            if (Math.hypot(pt.x - traj.x, pt.y - traj.y) < radius) {
+              return false; 
+            }
+          }
+          return true;
+        });
+      }
+      state.allWallPoints = [];
+      for (const scan of state.scans) {
+        for (const pt of scan.points) {
+          state.allWallPoints.push(pt);
+        }
+      }
+    }
+
+    // =========================================================================
+    // PARSER DELLE STRINGHE TELEMETRICHE
+    // =========================================================================
+    function parseSingleLineToState(line, shouldLog = true) {
+      const content = line.substring(4);
+      const parts = content.split('|');
+      const poseParts = parts[0].split(',');
+      if (poseParts.length < 3) return false;
+
+      const rx = parseFloat(poseParts[0]);
+      const ry = parseFloat(poseParts[1]);
+      const rTheta = parseFloat(poseParts[2]);
+      if (isNaN(rx) || isNaN(ry) || isNaN(rTheta)) return false;
+
+      state.robot = { x: rx, y: ry, theta: rTheta };
+      state.trajectory.push({ x: rx, y: ry });
+
+      const currentScanPoints = [];
+      const currentRays = [];
+      const scanId = state.scans.length;
+
+      for (let i = 1; i < parts.length; i++) {
+        const pair = parts[i].split(':');
+        if (pair.length !== 2) continue;
+        const servoAngle = parseFloat(pair[0]);
+        const distCm = parseFloat(pair[1]);
+        if (isNaN(servoAngle) || isNaN(distCm) || distCm <= 2) continue;
+
+        const globalAngleDeg = rTheta + (servoAngle - 90.0);
+        const rad = (globalAngleDeg * Math.PI) / 180.0;
+
+        const clampedDist = Math.min(distCm, state.maxRangeCm);
+        const hitX = rx + clampedDist * Math.cos(rad);
+        const hitY = ry + clampedDist * Math.sin(rad);
+
+        const isWallHit = distCm <= state.maxRangeCm;
+        currentRays.push({
+          fromX: rx,
+          fromY: ry,
+          toX: hitX,
+          toY: hitY,
+          hit: isWallHit
+        });
+
+        if (isWallHit) {
+          const pt = { x: hitX, y: hitY, scanId, servoAngle };
+          currentScanPoints.push(pt);
+          state.allWallPoints.push(pt);
+        }
+      }
+
+      state.scans.push({ robot: { ...state.robot }, points: currentScanPoints });
+      state.activeRays = currentRays;
+
+      cleanFreeSpaceByTrajectory();
+
+      if (shouldLog) {
+        state.rawLogLines.push(line);
+        if (state.autoFollow) {
+          state.camera.offsetX = -rx * state.camera.scale;
+          state.camera.offsetY = ry * state.camera.scale;
+        }
+        appendLogEntry(line);
+      }
+      return true;
+    }
+
+    function processTelemetryLine(rawLine) {
+      const line = rawLine.trim().replace(/\.$/, '');
+      if (!line.startsWith('MAP:')) return false;
+      try {
+        const ok = parseSingleLineToState(line, true);
+        if (ok) {
+          updateHUD();
+          renderMap();
+        }
+        return ok;
+      } catch (err) {
+        console.error('Errore parsing:', err);
+        return false;
+      }
+    }
+
+    function appendLogEntry(line) {
+      if (state.scans.length === 1) serialLogBox.innerHTML = '';
+      const item = document.createElement('div');
+      item.className = 'text-emerald-400/90 whitespace-nowrap w-max border-b border-slate-900 pb-1 pr-3';
+      item.textContent = `[#${state.scans.length}] ${line}`;
+      serialLogBox.prepend(item);
+      lblPacketCount.textContent = `${state.scans.length} scansioni`;
+    }
+
+  
+    // =========================================================================
+    // ALGORITMO DEFINITIVO CHIUDI-BUCHI (MULTI-SCAN + PROTEZIONE TRAIETTORIA)
+    // =========================================================================
+    
+    // Funzione geometrica: calcola la distanza minima tra un segmento (p1-p2) e un punto (t)
+    function distSegmentToPoint(x1, y1, x2, y2, px, py) {
+      const A = px - x1;
+      const B = py - y1;
+      const C = x2 - x1;
+      const D = y2 - y1;
+      const dot = A * C + B * D;
+      const lenSq = C * C + D * D;
+      let param = -1;
+      if (lenSq !== 0) param = dot / lenSq;
+      let xx, yy;
+      if (param < 0) { xx = x1; yy = y1; }
+      else if (param > 1) { xx = x2; yy = y2; }
+      else { xx = x1 + param * C; yy = y1 + param * D; }
+      return Math.hypot(px - xx, py - yy);
+    }
+
+    // Verifica che il muro che stiamo per disegnare non tagli MAI la scia gialla del robot
+    function segmentCrossesTrajectory(p1, p2) {
+      for (const traj of state.trajectory) {
+        if (distSegmentToPoint(p1.x, p1.y, p2.x, p2.y, traj.x, traj.y) < 8.5) {
+          return true; // Troppo vicino o sopra la traiettoria: vietato unire!
+        }
+      }
+      return false;
+    }
+
+    function computeWallSegments() {
+      const segments = [];
+      const maxDistIntraScan = 35; // Distanza max dentro la stessa scansione
+      const maxDistMultiScan = 42; // Distanza max per chiudere i buchi tra scansioni diverse
+
+      // 1. UNIONE INTRA-SCANSIONE (Stessa scansione, stesso lato)
+      for (const scan of state.scans) {
+        const pts = [...scan.points].sort((a, b) => a.servoAngle - b.servoAngle);
+
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p1 = pts[i];
+          const p2 = pts[i + 1];
+
+          // Separa rigorosamente sponda destra (<90) e sponda sinistra (>90)
+          if ((p1.servoAngle < 90 && p2.servoAngle > 90) || p1.servoAngle === 90 || p2.servoAngle === 90) {
+            continue;
+          }
+
+          const d = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+          if (d <= maxDistIntraScan && !segmentCrossesTrajectory(p1, p2)) {
+            segments.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, type: 'scan' });
+          }
+        }
+      }
+
+      // 2. UNIONE MULTI-SCANSIONE (Guarda fino a 5 scansioni avanti per saldare i buchi!)
+      for (let s = 0; s < state.scans.length - 1; s++) {
+        const currentPts = state.scans[s].points;
+
+        for (const pCurr of currentPts) {
+          if (Math.abs(pCurr.servoAngle - 90) < 2) continue;
+          const isRightSide = pCurr.servoAngle < 90;
+
+          let closestPt = null;
+          let minDist = 999;
+
+          // Cerca nelle 5 scansioni successive (salta eventuali letture a vuoto come nel log #6)
+          const maxLookAhead = Math.min(state.scans.length - 1, s + 5);
+          for (let nextIdx = s + 1; nextIdx <= maxLookAhead; nextIdx++) {
+            for (const pNext of state.scans[nextIdx].points) {
+              if (Math.abs(pNext.servoAngle - 90) < 2) continue;
+              const isNextRight = pNext.servoAngle < 90;
+
+              // Devono appartenere alla STESSA sponda (Destra con Destra, Sinistra con Sinistra)
+              if (isRightSide === isNextRight) {
+                const dist = Math.hypot(pNext.x - pCurr.x, pNext.y - pCurr.y);
+                if (dist > 1.0 && dist < minDist && !segmentCrossesTrajectory(pCurr, pNext)) {
+                  minDist = dist;
+                  closestPt = pNext;
+                }
+              }
+            }
+            // Se ha già trovato un ottimo aggancio vicino (< 22 cm), non serve cercare più avanti
+            if (closestPt && minDist < 22) break;
+          }
+
+          if (closestPt && minDist <= maxDistMultiScan) {
+            segments.push({ x1: pCurr.x, y1: pCurr.y, x2: closestPt.x, y2: closestPt.y, type: 'scan' });
+          }
+        }
+      }
+
+      return segments;
+    }
+
+    function updateHUD() {
+      statX.textContent = `${state.robot.x.toFixed(1)} cm`;
+      statY.textContent = `${state.robot.y.toFixed(1)} cm`;
+      statTheta.textContent = `${Math.round(state.robot.theta)}°`;
+      const segs = computeWallSegments();
+      statWalls.textContent = `${state.allWallPoints.length} pt / ${segs.length} linee`;
+    }
+
+    // =========================================================================
+    // MOTORE DI DISEGNO CANVAS 2D (Muri spessi a 10px)
+    // =========================================================================
+    function renderMap() {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.fillStyle = '#060b11';
+      ctx.fillRect(0, 0, w, h);
+
+      const stepCm = 20;
+      const stepPx = stepCm * state.camera.scale;
+      const origin = worldToScreen(0, 0);
+
+      if (stepPx > 8) {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.08)';
+        ctx.beginPath();
+        for (let x = origin.x % stepPx; x < w; x += stepPx) {
+          ctx.moveTo(x, 0); ctx.lineTo(x, h);
+        }
+        for (let y = origin.y % stepPx; y < h; y += stepPx) {
+          ctx.moveTo(0, y); ctx.lineTo(w, y);
+        }
+        ctx.stroke();
+      }
+
+      const robScreen = worldToScreen(state.robot.x, state.robot.y);
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.14)';
+      ctx.lineWidth = 1;
+      [25, 50, 100].forEach(radiusCm => {
+        ctx.beginPath();
+        ctx.arc(robScreen.x, robScreen.y, radiusCm * state.camera.scale, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(origin.x, 0); ctx.lineTo(origin.x, h);
+      ctx.moveTo(0, origin.y); ctx.lineTo(w, origin.y);
+      ctx.stroke();
+
+      if (state.showRays && state.activeRays.length > 0) {
+        for (const ray of state.activeRays) {
+          const pFrom = worldToScreen(ray.fromX, ray.fromY);
+          const pTo = worldToScreen(ray.toX, ray.toY);
+          ctx.strokeStyle = ray.hit ? 'rgba(16, 185, 129, 0.35)' : 'rgba(56, 189, 248, 0.12)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(pFrom.x, pFrom.y);
+          ctx.lineTo(pTo.x, pTo.y);
+          ctx.stroke();
+        }
+      }
+
+      if (state.trajectory.length > 1) {
+        ctx.save();
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        state.trajectory.forEach((pt, idx) => {
+          const s = worldToScreen(pt.x, pt.y);
+          if (idx === 0) ctx.moveTo(s.x, s.y);
+          else ctx.lineTo(s.x, s.y);
+        });
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      const wallSegments = computeWallSegments();
+      if (wallSegments.length > 0) {
+        ctx.save();
+        ctx.strokeStyle = '#22d3ee';
+        ctx.shadowColor = '#06b6d4';
+        ctx.shadowBlur = 8;
+        ctx.lineWidth = 10; // Muri spessi
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        for (const seg of wallSegments) {
+          const s1 = worldToScreen(seg.x1, seg.y1);
+          const s2 = worldToScreen(seg.x2, seg.y2);
+          ctx.moveTo(s1.x, s1.y);
+          ctx.lineTo(s2.x, s2.y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (state.showPoints) {
+        ctx.fillStyle = '#34d399';
+        for (const pt of state.allWallPoints) {
+          const s = worldToScreen(pt.x, pt.y);
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.save();
+      ctx.translate(robScreen.x, robScreen.y);
+      const rotRad = ((-state.robot.theta + 90) * Math.PI) / 180.0;
+      ctx.rotate(rotRad);
+
+      const robW = Math.max(16, 16 * (state.camera.scale / 2));
+      const robH = Math.max(22, 22 * (state.camera.scale / 2));
+
+      ctx.fillStyle = '#facc15';
+      const wheelW = robW * 0.25;
+      const wheelH = robH * 0.32;
+      ctx.fillRect(-robW / 2 - wheelW, -robH / 2 + 2, wheelW, wheelH);
+      ctx.fillRect(robW / 2, -robH / 2 + 2, wheelW, wheelH);
+      ctx.fillRect(-robW / 2 - wheelW, robH / 2 - wheelH - 2, wheelW, wheelH);
+      ctx.fillRect(robW / 2, robH / 2 - wheelH - 2, wheelW, wheelH);
+
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.28)';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(-robW / 2, -robH / 2, robW, robH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, robH / 4);
+      ctx.lineTo(0, -robH / 2 - 8);
+      ctx.lineTo(-5, -robH / 2 - 2);
+      ctx.moveTo(0, -robH / 2 - 8);
+      ctx.lineTo(5, -robH / 2 - 2);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // =========================================================================
+    // CONNESSIONE WI-FI
+    // =========================================================================
+    async function pollRobotWifi() {
+      if (state.isSendingCommand) return;
+      const ip = document.getElementById('inpRobotIP').value.trim();
+      if (!ip) return;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 900);
+        const res = await fetch(`http://${ip}/map`, { cache: 'no-store', signal: controller.signal });
+        clearTimeout(timeoutId);
+        const text = await res.text();
+        const parts = text.trim().split('#');
+        if (parts.length >= 2) {
+          const scanCount = parseInt(parts[0], 10);
+          if (scanCount > 0 && scanCount !== state.lastWifiScanId) {
+            state.lastWifiScanId = scanCount;
+            processTelemetryLine(parts[1]);
+          }
+          if (parts.length >= 3 && parts[2] === 'TRAGUARDO') {
+            showToast('🏆 TRAGUARDO FINALE RAGGIUNTO!');
+          }
+        } else if (text.trim().startsWith('MAP:')) {
+          processTelemetryLine(text.trim());
+        }
+      } catch (e) {}
+    }
+
+    function toggleWifiConnection() {
+      const btn = document.getElementById('btnToggleWifiPoll');
+      const ip = document.getElementById('inpRobotIP').value.trim();
+      if (state.wifiTimer) {
+        clearInterval(state.wifiTimer);
+        state.wifiTimer = null;
+        btn.textContent = 'Connetti Wi-Fi';
+        btn.className = 'px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition shadow-md shadow-emerald-900/30';
+        statusBadge.textContent = 'Wi-Fi Disconnesso';
+        statusBadge.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full bg-slate-800 text-slate-400 border border-slate-700';
+        showToast('Lettura Wi-Fi interrotta.');
+        return;
+      }
+      if (!ip || ip.endsWith('.')) {
+        showToast('Inserisci l\'indirizzo IP completo del robot (es. 192.168.1.120)', true);
+        return;
+      }
+      state.lastWifiScanId = -1;
+      btn.textContent = 'Disconnetti Wi-Fi';
+      btn.className = 'px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition';
+      statusBadge.textContent = `Wi-Fi Attivo (${ip})`;
+      statusBadge.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500';
+      showToast(`Collegato via Wi-Fi a http://${ip}! Premi ▶ Start per avviare.`);
+      pollRobotWifi();
+      state.wifiTimer = setInterval(pollRobotWifi, 1100);
+    }
+
+    async function sendWifiCommand(endpoint, msg) {
+      const ip = document.getElementById('inpRobotIP').value.trim();
+      if (!ip || ip.endsWith('.')) {
+        showToast('Inserisci prima l\'indirizzo IP completo del robot in alto!', true);
+        return;
+      }
+      state.isSendingCommand = true;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await fetch(`http://${ip}/${endpoint}`, { cache: 'no-store' });
+          showToast(msg);
+          if (endpoint === 'start' || endpoint === 'stop') {
+            statusBadge.textContent = endpoint === 'start' ? `In Esplorazione (${ip})` : `STOP Attivo (${ip})`;
+            statusBadge.className = endpoint === 'start'
+              ? 'px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500'
+              : 'px-2.5 py-0.5 text-xs font-semibold rounded-full bg-rose-950 text-rose-300 border border-rose-500';
+          }
+          if (endpoint === 'start' && !state.wifiTimer) toggleWifiConnection();
+          break;
+        } catch (e) {
+          await new Promise(r => setTimeout(r, 120));
+        }
+      }
+      state.isSendingCommand = false;
+    }
+
+    document.getElementById('btnToggleWifiPoll').addEventListener('click', toggleWifiConnection);
+    document.getElementById('btnWifiStart').addEventListener('click', () => sendWifiCommand('start', 'Comando ▶ START inviato al robot!'));
+    document.getElementById('btnWifiStop').addEventListener('click', () => sendWifiCommand('stop', 'Comando ⏹ STOP IMMEDIATO inviato al robot!'));
+
+    // SIMULATORE con 7 angoli
+    const virtualMazeWalls = [
+      { x1: -18, y1: -10, x2: -18, y2: 95 },
+      { x1: 18, y1: -10, x2: 18, y2: 75 },
+      { x1: -18, y1: 95, x2: 35, y2: 135 },
+      { x1: 18, y1: 75, x2: 55, y2: 115 }
+    ];
+
+    const simWaypoints = [
+      { x: 0, y: 0, theta: 90 },
+      { x: 0, y: 15, theta: 90 },
+      { x: 0, y: 30, theta: 90 },
+      { x: 0, y: 45, theta: 90 },
+      { x: 0, y: 60, theta: 90 },
+      { x: 5, y: 75, theta: 65 },
+      { x: 15, y: 90, theta: 45 },
+      { x: 26, y: 101, theta: 45 }
+    ];
+
+    function castSimulatedRay(rx, ry, angleDeg) {
+      const rad = (angleDeg * Math.PI) / 180.0;
+      const dx = Math.cos(rad);
+      const dy = Math.sin(rad);
+      let minDist = 160;
+
+      for (const w of virtualMazeWalls) {
+        const x1 = w.x1, y1 = w.y1, x2 = w.x2, y2 = w.y2;
+        const denom = dx * (y2 - y1) - dy * (x2 - x1);
+        if (Math.abs(denom) < 1e-6) continue;
+        const t = ((x1 - rx) * (y2 - y1) - (y1 - ry) * (x2 - x1)) / denom;
+        const u = ((x1 - rx) * dy - (y1 - ry) * dx) / denom;
+        if (t > 0 && u >= 0 && u <= 1) {
+          if (t < minDist) minDist = t;
+        }
+      }
+      const noise = (Math.random() - 0.5) * 1.2;
+      return Math.max(4, Math.round(minDist + noise));
+    }
+
+    function generateSimulatedPacket(pose) {
+      const servoAngles = [5, 35, 65, 90, 115, 145, 175];
+      const readings = servoAngles.map(ang => {
+        const globalAng = pose.theta + (ang - 90);
+        const dist = castSimulatedRay(pose.x, pose.y, globalAng);
+        return `${ang}:${dist}`;
+      });
+      return `MAP:${pose.x.toFixed(1)},${pose.y.toFixed(1)},${pose.theta.toFixed(0)}|${readings.join('|')}`;
+    }
+
+    function toggleSimulation() {
+      const btnText = document.getElementById('btnSimulateText');
+      if (state.simTimer) {
+        clearInterval(state.simTimer);
+        state.simTimer = null;
+        btnText.textContent = 'Simula Labirinto';
+        statusBadge.textContent = 'Simulazione in pausa';
+        statusBadge.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-950 text-amber-300 border border-amber-700';
+        return;
+      }
+
+      if (state.simStepIndex >= simWaypoints.length) {
+        clearMapData();
+      }
+
+      btnText.textContent = 'Ferma Simulazione';
+      statusBadge.textContent = 'Simulazione SLAM Attiva';
+      statusBadge.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full bg-indigo-950 text-indigo-300 border border-indigo-500';
+
+      state.simTimer = setInterval(() => {
+        if (state.simStepIndex >= simWaypoints.length) {
+          clearInterval(state.simTimer);
+          state.simTimer = null;
+          btnText.textContent = 'Rigioca Simulazione';
+          statusBadge.textContent = 'Mappa Completata';
+          showToast('Esplorazione del percorso completata!');
+          return;
+        }
+        const pose = simWaypoints[state.simStepIndex++];
+        const packet = generateSimulatedPacket(pose);
+        processTelemetryLine(packet);
+      }, 650);
+    }
+
+    async function connectWebSerial() {
+      if (!('serial' in navigator)) {
+        showToast('Su Safari usa il collegamento Wi-Fi in alto! Per il cavo USB usa Chrome o Edge.', true);
+        return;
+      }
+
+      try {
+        if (state.serialPort) {
+          await state.serialReader?.cancel();
+          await state.serialPort.close();
+          state.serialPort = null;
+          document.getElementById('btnConnectText').textContent = 'USB / BT';
+          statusBadge.textContent = 'Disconnesso';
+          showToast('Porta seriale disconnessa.');
+          return;
+        }
+
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+        state.serialPort = port;
+
+        document.getElementById('btnConnectText').textContent = 'Disconnetti USB';
+        statusBadge.textContent = 'Connesso (115200 baud)';
+        statusBadge.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500';
+        showToast('Arduino connesso via USB!');
+
+        const textDecoder = new TextDecoderStream();
+        port.readable.pipeTo(textDecoder.writable);
+        const reader = textDecoder.readable.getReader();
+        state.serialReader = reader;
+
+        let buffer = '';
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += value;
+          const lines = buffer.split(/\r?\n/);
+          buffer = lines.pop();
+          for (const l of lines) {
+            processTelemetryLine(l);
+          }
+        }
+      } catch (err) {
+        showToast('Connessione seriale annullata o non disponibile.', true);
+      }
+    }
+
+    function clearMapData() {
+      state.robot = { x: 0, y: 0, theta: 90 };
+      state.trajectory = [{ x: 0, y: 0 }];
+      state.scans = [];
+      state.allWallPoints = [];
+      state.activeRays = [];
+      state.rawLogLines = [];
+      state.simStepIndex = 0;
+      serialLogBox.innerHTML = '<div class="text-slate-600 italic">Mappa azzerata. Pronto per una nuova esplorazione.</div>';
+      lblPacketCount.textContent = '0 scansioni';
+      updateHUD();
+      renderMap();
+    }
+
+    document.getElementById('btnSimulate').addEventListener('click', toggleSimulation);
+    document.getElementById('btnConnectSerial').addEventListener('click', connectWebSerial);
+    document.getElementById('btnClearMap').addEventListener('click', () => {
+      if (state.simTimer) toggleSimulation();
+      clearMapData();
+      showToast('Mappa azzerata.');
+    });
+
+    document.getElementById('btnZoomIn').addEventListener('click', () => {
+      state.camera.scale = Math.min(8.0, state.camera.scale * 1.25);
+      renderMap();
+    });
+    document.getElementById('btnZoomOut').addEventListener('click', () => {
+      state.camera.scale = Math.max(0.6, state.camera.scale * 0.8);
+      renderMap();
+    });
+    document.getElementById('btnCenterView').addEventListener('click', () => {
+      state.camera.offsetX = -state.robot.x * state.camera.scale;
+      state.camera.offsetY = state.robot.y * state.camera.scale;
+      renderMap();
+    });
+
+    document.getElementById('chkShowRays').addEventListener('change', e => { state.showRays = e.target.checked; renderMap(); });
+    document.getElementById('chkConnectGlobal').addEventListener('change', e => { state.connectGlobal = e.target.checked; updateHUD(); renderMap(); });
+    document.getElementById('chkShowPoints').addEventListener('change', e => { state.showPoints = e.target.checked; renderMap(); });
+    document.getElementById('chkAutoFollow').addEventListener('change', e => { state.autoFollow = e.target.checked; });
+
+    document.getElementById('btnParseManual').addEventListener('click', () => {
+      const raw = document.getElementById('txtSerialInput').value.trim();
+      if (!raw) {
+        showToast('Inserisci o incolla almeno una riga MAP:...', true);
+        return;
+      }
+      const lines = raw.split(/\r?\n/);
+      let count = 0;
+      lines.forEach(l => { if (processTelemetryLine(l)) count++; });
+      if (count > 0) showToast(`Aggiunte ${count} scansioni alla mappa!`);
+      else showToast('Formato non valido. Usa MAP:x,y,theta|ang:dist', true);
+    });
+
+    document.getElementById('btnCopyLogs').addEventListener('click', () => {
+      if (state.rawLogLines.length === 0) {
+        showToast('Nessuna scansione da copiare.', true);
+        return;
+      }
+      const text = state.rawLogLines.join('\n');
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(`Copiate ${state.rawLogLines.length} stringhe MAP negli appunti!`);
+      });
+    });
+
+    document.getElementById('btnAddSamplePacket').addEventListener('click', () => {
+      const pose = simWaypoints[state.simStepIndex % simWaypoints.length];
+      state.simStepIndex++;
+      const sample = generateSimulatedPacket(pose);
+      document.getElementById('txtSerialInput').value = sample;
+      processTelemetryLine(sample);
+    });
+
+    document.getElementById('btnExportPNG').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = 'mappa_slam_robot_4wd.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast('Immagine PNG della mappa scaricata!');
+    });
+
+    window.addEventListener('load', () => {
+      resizeCanvas();
+      processTelemetryLine(generateSimulatedPacket(simWaypoints[0]));
+      processTelemetryLine(generateSimulatedPacket(simWaypoints[1]));
+      state.simStepIndex = 2;
+    });
+  </script>
+</body>
+</html>
