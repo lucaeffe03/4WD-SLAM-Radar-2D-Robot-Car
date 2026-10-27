@@ -161,6 +161,7 @@ L'interfaccia HTML converte ciascuna coppia `(angoloServo, distanza)` in coordin
    Affrontando curve strette a gomito che richiedono più scatti di rotazione consecutivi, il robot effettuava una nuova valutazione destra/sinistra a metà manovra. Trovandosi parzialmente ruotato, il sensore agli estremi (`5°` o `175°`) finiva per inquadrare il corridoio libero appena percorso alle proprie spalle, ingannando la logica di guida e portando il robot a invertire il senso di marcia tornando verso la partenza.
    * **Soluzione:** Introduzione di una variabile di stato con memoria direzionale (`direzioneInCorso`). Al rilevamento di un ostacolo frontale, il robot esegue un singolo arretramento, valuta l'apertura combinando gli estremi (`5°` e `175°`) con le diagonali (`35°` e `145°`) e **blocca in memoria la direzione scelta**. Negli step successivi, finché la visuale frontale (`90°`, `65°` e `115°`) non torna completamente sgombra, il robot è vincolato a proseguire la rotazione sul posto esclusivamente nel verso prestabilito, senza ulteriori retromarce né ripensamenti, azzerando la memoria solo a corsia libera imboccata.
 
+
 ---
 
 ### Conclusioni
