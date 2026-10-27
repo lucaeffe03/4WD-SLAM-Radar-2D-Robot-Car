@@ -4,7 +4,7 @@ Un robot esploratore autonomo a 4 ruote motrici basato su **Arduino UNO R4 WiFi*
 
 
 
-https://github.com/user-attachments/assets/4889db88-9c82-409c-ac4b-cb73f90703c8
+<video src="https://github.com/user-attachments/assets/4889db88-9c82-409c-ac4b-cb73f90703c8" autoplay loop muted playsinline controls width="100%"></video>
 
 
 
