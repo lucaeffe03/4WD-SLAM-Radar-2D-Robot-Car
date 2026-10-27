@@ -2,7 +2,9 @@
 
 Un robot esploratore autonomo a 4 ruote motrici basato su **Arduino UNO R4 WiFi**, progettato per navigare all'interno di percorsi e labirinti rilevando gli ostacoli circostanti. Il robot esegue scansioni radar a 180° tramite un sensore a ultrasuoni montato su servomotore e trasmette la telemetria in tempo reale via Wi-Fi (Simultaneous Localization and Mapping) a una **dashboard Web interattiva**, che ricostruisce la mappa vettoriale 2D delle pareti circostanti.
 
-<video src="content/car.mp4" autoplay muted loop controls width="100%"></video>
+
+
+https://github.com/user-attachments/assets/4889db88-9c82-409c-ac4b-cb73f90703c8
 
 
 
