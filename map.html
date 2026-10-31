@@ -105,7 +105,7 @@
     <p id="toastMessage" class="text-xs sm:text-sm"></p>
   </div>
 
-  <!-- MAIN WORKSPACE -->
+  <!-- MAIN  -->
   <main class="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
 
     <!-- LEFT / CENTER: 2D SLAM CANVAS -->
@@ -162,7 +162,7 @@
       </div>
     </div>
 
-    <!-- RIGHT SIDEBAR (Senza barre di regolazione) -->
+    <!-- RIGHT SIDEBAR  -->
     <div class="lg:col-span-4 flex flex-col gap-4 z-20" onmousedown="event.stopPropagation()" onmousemove="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchmove="event.stopPropagation()">
 
       <!-- Pannello Stato / Livelli visivi -->
@@ -233,9 +233,8 @@
   </main>
 
   <script>
-    // =========================================================================
+   
     // STATO DELL'APPLICAZIONE SLAM 2D
-    // =========================================================================
     const state = {
       robot: { x: 0, y: 0, theta: 90 },
       trajectory: [{ x: 0, y: 0 }],
@@ -309,9 +308,8 @@
       };
     }
 
-    // =========================================================================
     // PULIZIA AUTOMATICA DELLO SPAZIO LIBERO LUNGO LA TRAIETTORIA
-    // =========================================================================
+   
     function cleanFreeSpaceByTrajectory() {
       const radius = 9; 
       for (const scan of state.scans) {
@@ -332,9 +330,9 @@
       }
     }
 
-    // =========================================================================
+    
     // PARSER DELLE STRINGHE TELEMETRICHE
-    // =========================================================================
+    
     function parseSingleLineToState(line, shouldLog = true) {
       const content = line.substring(4);
       const parts = content.split('|');
@@ -425,9 +423,9 @@
     }
 
   
-    // =========================================================================
-    // ALGORITMO DEFINITIVO CHIUDI-BUCHI (MULTI-SCAN + PROTEZIONE TRAIETTORIA)
-    // =========================================================================
+  
+    // ALGORITMO  CHIUDI-BUCHI (MULTI-SCAN + PROTEZIONE TRAIETTORIA)
+   
     
     // Funzione geometrica: calcola la distanza minima tra un segmento (p1-p2) e un punto (t)
     function distSegmentToPoint(x1, y1, x2, y2, px, py) {
@@ -446,7 +444,7 @@
       return Math.hypot(px - xx, py - yy);
     }
 
-    // Verifica che il muro che stiamo per disegnare non tagli MAI la scia gialla del robot
+    // Verifica che il muro non tagli MAI la scia gialla del robot
     function segmentCrossesTrajectory(p1, p2) {
       for (const traj of state.trajectory) {
         if (distSegmentToPoint(p1.x, p1.y, p2.x, p2.y, traj.x, traj.y) < 8.5) {
@@ -469,7 +467,7 @@
           const p1 = pts[i];
           const p2 = pts[i + 1];
 
-          // Separa rigorosamente sponda destra (<90) e sponda sinistra (>90)
+          // Separa  sponda destra (<90) e sponda sinistra (>90)
           if ((p1.servoAngle < 90 && p2.servoAngle > 90) || p1.servoAngle === 90 || p2.servoAngle === 90) {
             continue;
           }
@@ -492,7 +490,7 @@
           let closestPt = null;
           let minDist = 999;
 
-          // Cerca nelle 5 scansioni successive (salta eventuali letture a vuoto come nel log #6)
+          // Cerca nelle 5 scansioni successive (salta eventuali letture a vuoto)
           const maxLookAhead = Math.min(state.scans.length - 1, s + 5);
           for (let nextIdx = s + 1; nextIdx <= maxLookAhead; nextIdx++) {
             for (const pNext of state.scans[nextIdx].points) {
@@ -529,9 +527,9 @@
       statWalls.textContent = `${state.allWallPoints.length} pt / ${segs.length} linee`;
     }
 
-    // =========================================================================
-    // MOTORE DI DISEGNO CANVAS 2D (Muri spessi a 10px)
-    // =========================================================================
+   
+    // MOTORE DI DISEGNO CANVAS 2D 
+   
     function renderMap() {
       const w = canvas.width;
       const h = canvas.height;
@@ -667,9 +665,8 @@
       ctx.restore();
     }
 
-    // =========================================================================
     // CONNESSIONE WI-FI
-    // =========================================================================
+
     async function pollRobotWifi() {
       if (state.isSendingCommand) return;
       const ip = document.getElementById('inpRobotIP').value.trim();
