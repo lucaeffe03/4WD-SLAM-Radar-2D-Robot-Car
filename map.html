@@ -30,7 +30,7 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
-  <!-- TOP HEADER -->
+  <!-- TOP  -->
   <header class="bg-slate-900/90 border-b border-slate-800 px-4 py-3 sticky top-0 z-30 backdrop-blur-md">
     <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
@@ -50,7 +50,7 @@
         </div>
       </div>
 
-      <!-- Main Action Buttons -->
+      <!-- Main Buttons -->
       <div class="flex flex-wrap items-center gap-2">
         
         <!-- Controllo Wi-Fi Arduino R4 + Start/Stop -->
@@ -99,7 +99,7 @@
     </div>
   </header>
 
-  <!-- NOTIFICATION BANNER -->
+  <!-- banner notifica  -->
   <div id="toastBanner" class="hidden fixed bottom-5 right-5 z-50 max-w-md bg-slate-900 border border-emerald-500/50 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
     <div id="toastIcon" class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></div>
     <p id="toastMessage" class="text-xs sm:text-sm"></p>
@@ -108,11 +108,11 @@
   <!-- MAIN  -->
   <main class="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
 
-    <!-- LEFT / CENTER: 2D SLAM CANVAS -->
+    <!-- sx / cx -->
     <div class="lg:col-span-8 flex flex-col gap-3">
       <div class="relative flex-1 min-h-[480px] sm:min-h-[620px] bg-[#060b11] rounded-2xl border border-emerald-500/30 radar-glow overflow-hidden flex flex-col">
         
-        <!-- Overlay Telemetry Bar -->
+        <!-- telemetria -->
         <div class="absolute top-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
           <div class="flex flex-wrap items-center gap-2 bg-slate-900/85 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl pointer-events-auto">
             <div class="text-xs">
@@ -136,7 +136,7 @@
             </div>
           </div>
 
-          <!-- Zoom & View Controls -->
+          <!-- Zoom & View  -->
           <div class="flex items-center gap-1 bg-slate-900/85 backdrop-blur-md border border-slate-800 p-1 rounded-xl pointer-events-auto">
             <button id="btnZoomIn" title="Ingrandisci" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-300 text-xs font-bold">+</button>
             <button id="btnZoomOut" title="Rimpicciolisci" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-300 text-xs font-bold">−</button>
@@ -144,10 +144,10 @@
           </div>
         </div>
 
-        <!-- THE INTERACTIVE 2D MAP CANVAS -->
+        <!--  2D map canvas interattivi -->
         <canvas id="slamCanvas" class="w-full h-full flex-1 cursor-grab active:cursor-grabbing touch-none"></canvas>
 
-        <!-- Bottom Legend Overlay -->
+        <!-- Bottom  -->
         <div class="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none text-[11px] text-slate-400">
           <div class="flex flex-wrap items-center gap-3 bg-slate-900/85 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl">
             <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-cyan-400 inline-block"></span> Pareti rilevate (Linee)</span>
@@ -162,7 +162,7 @@
       </div>
     </div>
 
-    <!-- RIGHT SIDEBAR  -->
+    <!--  SIDEBAR Destra  -->
     <div class="lg:col-span-4 flex flex-col gap-4 z-20" onmousedown="event.stopPropagation()" onmousemove="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchmove="event.stopPropagation()">
 
       <!-- Pannello Stato / Livelli visivi -->
@@ -444,7 +444,7 @@
       return Math.hypot(px - xx, py - yy);
     }
 
-    // Verifica che il muro non tagli MAI la scia gialla del robot
+    // Verifica che il muro non tagli mai la scia gialla del robot
     function segmentCrossesTrajectory(p1, p2) {
       for (const traj of state.trajectory) {
         if (distSegmentToPoint(p1.x, p1.y, p2.x, p2.y, traj.x, traj.y) < 8.5) {
@@ -459,7 +459,7 @@
       const maxDistIntraScan = 35; // Distanza max dentro la stessa scansione
       const maxDistMultiScan = 42; // Distanza max per chiudere i buchi tra scansioni diverse
 
-      // 1. UNIONE INTRA-SCANSIONE (Stessa scansione, stesso lato)
+      // UNIONE INTRA-SCANSIONE (Stessa scansione, stesso lato)
       for (const scan of state.scans) {
         const pts = [...scan.points].sort((a, b) => a.servoAngle - b.servoAngle);
 
@@ -479,7 +479,7 @@
         }
       }
 
-      // 2. UNIONE MULTI-SCANSIONE (Guarda fino a 5 scansioni avanti per saldare i buchi!)
+      // UNIONE MULTI-SCANSIONE (Guarda fino a 5 scansioni avanti per saldare i buchi!)
       for (let s = 0; s < state.scans.length - 1; s++) {
         const currentPts = state.scans[s].points;
 
