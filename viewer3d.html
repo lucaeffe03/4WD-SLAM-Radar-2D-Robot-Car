@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D CAD Explorer — Arduino UNO R4 WiFi 4WD SLAM Robot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0b0f19;
+      color: #e2e8f0;
+      overflow: hidden;
+      user-select: none;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      background: linear-gradient(90deg, #0ea5e9 0%, #22d3ee 50%, #10b981 100%);
+      height: 8px;
+      border-radius: 999px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      margin-top: -6px;
+      background-color: #ffffff;
+      height: 20px;
+      width: 20px;
+      border-radius: 999px;
+      border: 3px solid #06b6d4;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.9);
+      transition: transform 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.18);
+    }
+    .label-3d {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.15s ease;
+      z-index: 10;
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(56, 189, 248, 0.22);
+    }
+  </style>
+</head>
+<body class="w-screen h-screen relative overflow-hidden bg-[#0b0f19]">
+
+  <div class="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2.5 glass-panel px-3 py-2 rounded-2xl shadow-2xl">
+    <button id="btnRadarSweep" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition flex items-center gap-2">
+      <span id="radarDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+      <span>Scansione Radar</span>
+    </button>
+
+    <button id="btnToggleLabels" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 transition flex items-center gap-2">
+      <span>🏷️ Etichette</span>
+    </button>
+  </div>
+
+  <div id="canvasContainer" class="w-full h-full relative overflow-hidden">
+    <div id="labelsContainer" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+  </div>
+
+  <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-[85%] max-w-md glass-panel rounded-full px-5 py-3.5 shadow-2xl flex items-center">
+    <input id="explodeSlider" type="range" min="0" max="100" value="0" class="w-full" aria-label="Explosion Slider" />
+  </div>
+
+  <script>
+
+    const ROBOT_PARTS_DATA = [
+      {
+        id: 'turret',
+        shortLabel: 'Torretta Radar HC-SR04 + SG90',
+        colorHex: '#06b6d4',
+        explodeOffset: { x: 0, y: 4.2, z: 4.8 }
+      },
+      {
+        id: 'arduino',
+        shortLabel: 'Arduino UNO R4 WiFi + Sensor Shield V5',
+        colorHex: '#10b981',
+        explodeOffset: { x: 0, y: 6.2, z: -0.4 }
+      },
+      {
+        id: 'l298n',
+        shortLabel: 'Driver Motori L298N',
+        colorHex: '#ef4444',
+        explodeOffset: { x: 0, y: 3.8, z: 1.8 }
+      },
+      {
+        id: 'aa_pack',
+        shortLabel: 'Portapile 4x AA (Motori)',
+        colorHex: '#84cc16',
+        explodeOffset: { x: 0, y: 4.5, z: -4.8 }
+      },
+      {
+        id: 'liion_pack',
+        shortLabel: 'Batterie 2x 18650 (Logica)',
+        colorHex: '#3b82f6',
+        explodeOffset: { x: 0, y: 0.9, z: -3.8 }
+      },
+      {
+        id: 'top_plate',
+        shortLabel: 'Telaio Superiore Acrilico',
+        colorHex: '#94a3b8',
+        explodeOffset: { x: 0, y: 2.0, z: 0 }
+      },
+      {
+        id: 'bottom_plate',
+        shortLabel: 'Telaio Inferiore + Distanziali',
+        colorHex: '#64748b',
+        explodeOffset: { x: 0, y: -1.4, z: 0 }
+      },
+      {
+        id: 'wheels_left',
+        shortLabel: 'Motori DC TT & Ruote SX',
+        colorHex: '#eab308',
+        explodeOffset: { x: -4.8, y: -0.6, z: 0 }
+      },
+      {
+        id: 'wheels_right',
+        shortLabel: 'Motori DC TT & Ruote DX',
+        colorHex: '#f59e0b',
+        explodeOffset: { x: 4.8, y: -0.6, z: 0 }
+      },
+      {
+        id: 'ir_module',
+        shortLabel: 'Modulo 4 Canali + 3 Sensori IR',
+        colorHex: '#f43f5e',
+        explodeOffset: { x: 0, y: -4.2, z: 1.5 }
+      }
+    ];
+
+    const container = document.getElementById('canvasContainer');
+    const labelsContainer = document.getElementById('labelsContainer');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b0f19);
+    scene.fog = new THREE.FogExp2(0x0b0f19, 0.015);
+
+    const camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 200);
+    camera.position.set(14, 11, 16);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxDistance = 45;
+    controls.minDistance = 5;
+    controls.target.set(0, 0.8, 0);
+
+    const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.78);
+    scene.add(ambientLight);
+
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.15);
+    dirLight1.position.set(12, 22, 15);
+    dirLight1.castShadow = true;
+    scene.add(dirLight1);
+
+    const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.55);
+    dirLight2.position.set(-15, -10, -12);
+    scene.add(dirLight2);
+
+    const underLight = new THREE.PointLight(0xf43f5e, 0.5, 18);
+    underLight.position.set(0, -6, 3);
+    scene.add(underLight);
+
+    const gridHelper = new THREE.GridHelper(36, 36, 0x0ea5e9, 0x1e293b);
+    gridHelper.position.y = -4.2;
+    gridHelper.material.transparent = true;
+    gridHelper.material.opacity = 0.4;
+    scene.add(gridHelper);
+
+    const partGroups = {};
+    const guideLines = [];
+    const labelElements = {};
+
+    const acrylicMat = new THREE.MeshPhysicalMaterial({
+      color: 0xe2e8f0,
+      transparent: true,
+      opacity: 0.52,
+      roughness: 0.25,
+      metalness: 0.05,
+      reflectivity: 0.8
+    });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.25 });
+    const blackPlasticMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.55, metalness: 0.1 });
+    const darkRubberMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.85, metalness: 0.05 });
+    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35, metalness: 0.1 });
+    const redPcbMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.35, metalness: 0.2 });
+    const arduinoTealMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.35, metalness: 0.2 });
+    const blueServoMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.3, metalness: 0.15 });
+    const silverMetalMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.2 });
+    const greenBattMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.3, metalness: 0.25 });
+    const blueBattMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.3, metalness: 0.3 });
+
+    function createChassisPlateGeometry() {
+      const shape = new THREE.Shape();
+      shape.moveTo(-2.7, -4.4);
+      shape.lineTo(2.7, -4.4);
+      shape.quadraticCurveTo(3.4, -3.8, 3.0, -2.5);
+      shape.lineTo(2.3, -2.0);
+      shape.lineTo(2.3, 2.0);
+      shape.lineTo(3.0, 2.5);
+      shape.quadraticCurveTo(3.5, 4.1, 2.5, 4.7);
+      shape.quadraticCurveTo(0, 5.2, -2.5, 4.7);
+      shape.quadraticCurveTo(-3.5, 4.1, -3.0, 2.5);
+      shape.lineTo(-2.3, 2.0);
+      shape.lineTo(-2.3, -2.0);
+      shape.lineTo(-3.0, -2.5);
+      shape.quadraticCurveTo(-3.4, -3.8, -2.7, -4.4);
+
+      const hole = new THREE.Path();
+      hole.absarc(0, 0.4, 0.65, 0, Math.PI * 2, false);
+      shape.holes.push(hole);
+
+      const extrudeSettings = { depth: 0.14, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.03, bevelThickness: 0.03 };
+      const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      geo.rotateX(Math.PI / 2);
+      return geo;
+    }
+
+    const chassisGeo = createChassisPlateGeometry();
+
+    const bottomPlateGroup = new THREE.Group();
+    const bottomPlateMesh = new THREE.Mesh(chassisGeo, acrylicMat.clone());
+    bottomPlateMesh.position.y = -0.5;
+    bottomPlateGroup.add(bottomPlateMesh);
+
+    const standoffCoords = [
+      [-2.1, 3.6], [2.1, 3.6],
+      [-1.9, 0.0], [1.9, 0.0],
+      [-2.1, -3.5], [2.1, -3.5]
+    ];
+    standoffCoords.forEach(([sx, sz]) => {
+      const standMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 1.35, 6), brassMat);
+      standMesh.position.set(sx, 0.15, sz);
+      bottomPlateGroup.add(standMesh);
+    });
+
+    const topPlateGroup = new THREE.Group();
+    const topPlateMesh = new THREE.Mesh(chassisGeo, acrylicMat.clone());
+    topPlateMesh.position.y = 0.9;
+    topPlateGroup.add(topPlateMesh);
+
+    function createWheelAndMotor(isLeft, zPos) {
+      const unit = new THREE.Group();
+      const sign = isLeft ? -1 : 1;
+
+      const gearbox = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.85, 1.9), yellowMat);
+      gearbox.position.set(sign * 1.45, -1.0, zPos);
+      unit.add(gearbox);
+
+      const dcMotor = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.8, 16), silverMetalMat);
+      dcMotor.rotation.z = Math.PI / 2;
+      dcMotor.position.set(sign * 0.9, -1.0, zPos - 0.3);
+      unit.add(dcMotor);
+
+      const wheelGroup = new THREE.Group();
+      wheelGroup.position.set(sign * 2.75, -1.0, zPos);
+
+      const tire = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, 0.95, 28), darkRubberMat);
+      tire.rotation.z = Math.PI / 2;
+      wheelGroup.add(tire);
+
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const tread = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.12, 0.22), darkRubberMat);
+        tread.position.set(0, Math.cos(angle) * 1.45, Math.sin(angle) * 1.45);
+        tread.rotation.x = -angle;
+        wheelGroup.add(tread);
+      }
+
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.98, 20), yellowMat);
+      rim.rotation.z = Math.PI / 2;
+      wheelGroup.add(rim);
+
+      unit.add(wheelGroup);
+      return unit;
+    }
+
+    const wheelsLeftGroup = new THREE.Group();
+    wheelsLeftGroup.add(createWheelAndMotor(true, 2.45));
+    wheelsLeftGroup.add(createWheelAndMotor(true, -2.45));
+
+    const wheelsRightGroup = new THREE.Group();
+    wheelsRightGroup.add(createWheelAndMotor(false, 2.45));
+    wheelsRightGroup.add(createWheelAndMotor(false, -2.45));
+
+    const liionGroup = new THREE.Group();
+    const holder18650 = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.65, 3.1), blackPlasticMat);
+    holder18650.position.set(0, 0.1, -1.2);
+    liionGroup.add(holder18650);
+
+    [-0.52, 0.52].forEach(bx => {
+      const cell = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 2.8, 20), blueBattMat);
+      cell.rotation.x = Math.PI / 2;
+      cell.position.set(bx, 0.22, -1.2);
+      liionGroup.add(cell);
+    });
+
+    const aaPackGroup = new THREE.Group();
+    const aaBox = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.6, 2.45), blackPlasticMat);
+    aaBox.position.set(0, 1.2, -3.35);
+    aaPackGroup.add(aaBox);
+
+    [-0.78, -0.26, 0.26, 0.78].forEach(zOff => {
+      const aaCell = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 2.85, 18), greenBattMat);
+      aaCell.rotation.z = Math.PI / 2;
+      aaCell.position.set(0, 1.42, -3.35 + zOff);
+      aaPackGroup.add(aaCell);
+
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.92, 12), silverMetalMat);
+      cap.rotation.z = Math.PI / 2;
+      cap.position.set(0, 1.42, -3.35 + zOff);
+      aaPackGroup.add(cap);
+    });
+
+    const arduinoGroup = new THREE.Group();
+    const boardPivot = new THREE.Group();
+    boardPivot.position.set(0, 1.15, -0.55);
+    boardPivot.rotation.y = -0.18;
+
+    const unoBoard = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.15, 2.1), arduinoTealMat);
+    boardPivot.add(unoBoard);
+
+    const barrelJack = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.45), blackPlasticMat);
+    barrelJack.position.set(-1.15, 0.25, -0.65);
+    boardPivot.add(barrelJack);
+
+    const usbPort = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.25, 0.4), silverMetalMat);
+    usbPort.position.set(-1.18, 0.2, 0.55);
+    boardPivot.add(usbPort);
+
+    const ledMatrix = new THREE.Mesh(
+      new THREE.BoxGeometry(0.85, 0.06, 0.6),
+      new THREE.MeshBasicMaterial({ color: 0xff2a2a })
+    );
+    ledMatrix.position.set(0.35, 0.1, 0.1);
+    boardPivot.add(ledMatrix);
+
+    const shieldBoard = new THREE.Mesh(
+      new THREE.BoxGeometry(2.55, 0.14, 2.0),
+      new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.4 })
+    );
+    shieldBoard.position.set(0, 0.38, 0);
+    boardPivot.add(shieldBoard);
+
+    for (let i = -4; i <= 4; i++) {
+      const pinRow = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.24, 0.45), yellowMat);
+      pinRow.position.set(i * 0.22, 0.55, 0.65);
+      boardPivot.add(pinRow);
+    }
+
+    arduinoGroup.add(boardPivot);
+
+    const l298nGroup = new THREE.Group();
+    const l298nBase = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.14, 1.85), redPcbMat);
+    l298nBase.position.set(0, 1.08, 1.75);
+    l298nGroup.add(l298nBase);
+
+    const heatsink = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.85, 0.55), blackPlasticMat);
+    heatsink.position.set(0, 1.55, 1.75);
+    l298nGroup.add(heatsink);
+
+    const blueTermMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.4 });
+    const termLeft = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.42, 0.7), blueTermMat);
+    termLeft.position.set(-0.75, 1.32, 1.75);
+    l298nGroup.add(termLeft);
+
+    const termRight = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.42, 0.7), blueTermMat);
+    termRight.position.set(0.75, 1.32, 1.75);
+    l298nGroup.add(termRight);
+
+    const termFront = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.42, 0.35), blueTermMat);
+    termFront.position.set(0, 1.32, 2.48);
+    l298nGroup.add(termFront);
+
+    const l298nLed = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0xff1111 })
+    );
+    l298nLed.position.set(-0.4, 1.22, 2.2);
+    l298nGroup.add(l298nLed);
+
+    const turretGroup = new THREE.Group();
+    const turretPivot = new THREE.Group();
+    turretPivot.position.set(0, 1.05, 3.65);
+
+    const servoCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.72, 0.25, 24), blackPlasticMat);
+    servoCollar.position.set(0, 0.12, 0);
+    turretPivot.add(servoCollar);
+
+    const blackBracket = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.05, 1.1), blackPlasticMat);
+    blackBracket.position.set(0, 0.72, 0);
+    turretPivot.add(blackBracket);
+
+    const innerServoGlimpse = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.75, 0.65), blueServoMat);
+    innerServoGlimpse.position.set(0, 0.72, -0.22);
+    turretPivot.add(innerServoGlimpse);
+
+    const hcsr04Group = new THREE.Group();
+    hcsr04Group.position.set(0, 1.55, 0.22);
+
+    const usPcb = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.92, 0.1), blueServoMat);
+    hcsr04Group.add(usPcb);
+
+    const crystal = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.18, 0.14), silverMetalMat);
+    crystal.position.set(0, 0.32, 0.08);
+    hcsr04Group.add(crystal);
+
+    [-0.55, 0.55].forEach(cx => {
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.55, 28), silverMetalMat);
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.set(cx, 0, 0.3);
+      hcsr04Group.add(barrel);
+
+      const meshInside = new THREE.Mesh(new THREE.CircleGeometry(0.31, 20), blackPlasticMat);
+      meshInside.position.set(cx, 0, 0.58);
+      hcsr04Group.add(meshInside);
+    });
+
+    const radarConeGeo = new THREE.ConeGeometry(2.6, 6.5, 24, 1, true);
+    radarConeGeo.translate(0, -3.25, 0);
+    radarConeGeo.rotateX(-Math.PI / 2);
+    const radarConeMat = new THREE.MeshBasicMaterial({
+      color: 0x10b981,
+      transparent: true,
+      opacity: 0.2,
+      side: THREE.DoubleSide
+    });
+    const radarConeMesh = new THREE.Mesh(radarConeGeo, radarConeMat);
+    radarConeMesh.position.set(0, 0, 0.6);
+    hcsr04Group.add(radarConeMesh);
+
+    const radarWireCone = new THREE.Mesh(
+      radarConeGeo,
+      new THREE.MeshBasicMaterial({ color: 0x34d399, wireframe: true, transparent: true, opacity: 0.38 })
+    );
+    radarWireCone.position.set(0, 0, 0.6);
+    hcsr04Group.add(radarWireCone);
+
+    turretPivot.add(hcsr04Group);
+    turretGroup.add(turretPivot);
+
+    const irModuleGroup = new THREE.Group();
+
+    const irMainBoard = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.12, 1.9), redPcbMat);
+    irMainBoard.position.set(0.3, -0.72, 0.8);
+    irMainBoard.rotation.y = 0.12;
+    irModuleGroup.add(irMainBoard);
+
+    [-0.52, -0.17, 0.17, 0.52].forEach(px => {
+      const pot = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.14, 0.26), blueTermMat);
+      pot.position.set(0.3 + px, -0.82, 0.2);
+      irModuleGroup.add(pot);
+    });
+
+    const irPositions = [
+      { x: -1.85, z: 4.35, rotY: -0.2 },
+      { x: 0.0,   z: 4.65, rotY: 0.0 },
+      { x: 1.85,  z: 4.35, rotY: 0.2 }
+    ];
+
+    irPositions.forEach(pos => {
+      const subIr = new THREE.Group();
+      subIr.position.set(pos.x, -0.72, pos.z);
+      subIr.rotation.y = pos.rotY;
+
+      const pcb = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.08, 0.85), redPcbMat);
+      subIr.add(pcb);
+
+      const redLed = new THREE.Mesh(
+        new THREE.SphereGeometry(0.06, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xff2222 })
+      );
+      redLed.position.set(0, -0.06, 0.15);
+      subIr.add(redLed);
+
+      const irLedClear = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.09, 0.35, 12),
+        new THREE.MeshPhysicalMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.85 })
+      );
+      irLedClear.rotation.x = Math.PI / 3;
+      irLedClear.position.set(-0.13, -0.14, 0.45);
+      subIr.add(irLedClear);
+
+      const irLedBlack = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.35, 12), blackPlasticMat);
+      irLedBlack.rotation.x = Math.PI / 3;
+      irLedBlack.position.set(0.13, -0.14, 0.45);
+      subIr.add(irLedBlack);
+
+      irModuleGroup.add(subIr);
+    });
+
+    const groupMap = {
+      turret: turretGroup,
+      arduino: arduinoGroup,
+      l298n: l298nGroup,
+      aa_pack: aaPackGroup,
+      liion_pack: liionGroup,
+      top_plate: topPlateGroup,
+      bottom_plate: bottomPlateGroup,
+      wheels_left: wheelsLeftGroup,
+      wheels_right: wheelsRightGroup,
+      ir_module: irModuleGroup
+    };
+
+    const partCenters = {
+      turret: new THREE.Vector3(0, 2.3, 3.8),
+      arduino: new THREE.Vector3(0, 1.5, -0.55),
+      l298n: new THREE.Vector3(0, 1.5, 1.75),
+      aa_pack: new THREE.Vector3(0, 1.5, -3.35),
+      liion_pack: new THREE.Vector3(0, 0.2, -1.2),
+      top_plate: new THREE.Vector3(2.2, 0.9, 1.2),
+      bottom_plate: new THREE.Vector3(-2.2, -0.5, 1.2),
+      wheels_left: new THREE.Vector3(-2.8, -1.0, 0),
+      wheels_right: new THREE.Vector3(2.8, -1.0, 0),
+      ir_module: new THREE.Vector3(0, -0.8, 4.4)
+    };
+
+    ROBOT_PARTS_DATA.forEach(part => {
+      const grp = groupMap[part.id];
+      partGroups[part.id] = grp;
+      scene.add(grp);
+
+      const lineGeo = new THREE.BufferGeometry().setFromPoints([
+        partCenters[part.id].clone(),
+        partCenters[part.id].clone()
+      ]);
+      const lineMat = new THREE.LineDashedMaterial({
+        color: part.colorHex,
+        dashSize: 0.25,
+        gapSize: 0.15,
+        transparent: true,
+        opacity: 0.0
+      });
+      const line = new THREE.Line(lineGeo, lineMat);
+      line.computeLineDistances();
+      scene.add(line);
+      guideLines.push({ id: part.id, line, baseCenter: partCenters[part.id].clone(), offset: part.explodeOffset });
+
+      const lbl = document.createElement('div');
+      lbl.className = 'label-3d px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-900/90 text-slate-100 border shadow-lg whitespace-nowrap flex items-center gap-1.5';
+      lbl.style.borderColor = part.colorHex;
+      lbl.innerHTML = `<span class="w-2 h-2 rounded-full" style="background:${part.colorHex}"></span><span>${part.shortLabel}</span>`;
+      labelsContainer.appendChild(lbl);
+      labelElements[part.id] = lbl;
+    });
+
+    let currentExplode = 0;
+    let targetExplode = 0;
+    let radarSweepActive = true;
+    let labelsVisible = true;
+
+    const explodeSlider = document.getElementById('explodeSlider');
+    explodeSlider.addEventListener('input', (e) => {
+      targetExplode = parseFloat(e.target.value) / 100;
+    });
+
+    const btnRadarSweep = document.getElementById('btnRadarSweep');
+    const radarDot = document.getElementById('radarDot');
+    btnRadarSweep.addEventListener('click', () => {
+      radarSweepActive = !radarSweepActive;
+      radarConeMesh.visible = radarSweepActive;
+      radarWireCone.visible = radarSweepActive;
+      radarDot.classList.toggle('animate-ping', radarSweepActive);
+      btnRadarSweep.classList.toggle('opacity-50', !radarSweepActive);
+      if (!radarSweepActive) {
+        turretPivot.rotation.y = 0;
+      }
+    });
+
+    const btnToggleLabels = document.getElementById('btnToggleLabels');
+    btnToggleLabels.addEventListener('click', () => {
+      labelsVisible = !labelsVisible;
+      labelsContainer.style.display = labelsVisible ? 'block' : 'none';
+      btnToggleLabels.classList.toggle('opacity-50', !labelsVisible);
+    });
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsed = clock.getElapsedTime();
+
+      currentExplode += (targetExplode - currentExplode) * 0.09;
+
+      ROBOT_PARTS_DATA.forEach(part => {
+        const grp = partGroups[part.id];
+        grp.position.set(
+          part.explodeOffset.x * currentExplode,
+          part.explodeOffset.y * currentExplode,
+          part.explodeOffset.z * currentExplode
+        );
+      });
+
+      guideLines.forEach(item => {
+        const endPos = new THREE.Vector3(
+          item.baseCenter.x + item.offset.x * currentExplode,
+          item.baseCenter.y + item.offset.y * currentExplode,
+          item.baseCenter.z + item.offset.z * currentExplode
+        );
+        const positions = item.line.geometry.attributes.position.array;
+        positions[3] = endPos.x;
+        positions[4] = endPos.y;
+        positions[5] = endPos.z;
+        item.line.geometry.attributes.position.needsUpdate = true;
+        item.line.computeLineDistances();
+        item.line.material.opacity = currentExplode > 0.03 ? Math.min(0.75, currentExplode) : 0;
+      });
+
+      if (radarSweepActive) {
+        turretPivot.rotation.y = Math.sin(elapsed * 1.6) * THREE.MathUtils.degToRad(85);
+      }
+
+      if (labelsVisible) {
+        const widthHalf = container.clientWidth / 2;
+        const heightHalf = container.clientHeight / 2;
+
+        ROBOT_PARTS_DATA.forEach(part => {
+          const lbl = labelElements[part.id];
+          const worldPos = partCenters[part.id].clone().add(partGroups[part.id].position);
+          worldPos.project(camera);
+
+          if (worldPos.z > 1) {
+            lbl.style.opacity = '0';
+          } else {
+            const x = (worldPos.x * widthHalf) + widthHalf;
+            const y = -(worldPos.y * heightHalf) + heightHalf;
+            lbl.style.left = `${x}px`;
+            lbl.style.top = `${y}px`;
+            lbl.style.opacity = '1';
+          }
+        });
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    window.onload = function () {
+      animate();
+    };
+  </script>
+</body>
+</html>
