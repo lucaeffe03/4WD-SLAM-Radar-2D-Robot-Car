@@ -65,8 +65,10 @@ https://github.com/user-attachments/assets/4889db88-9c82-409c-ac4b-cb73f90703c8
 3 - Copia l'**indirizzo IP locale** stampato a schermo nel monitor.
 4 - Scollega il cavo USB e accendi le batterie (pacco 18650 su Arduino + pacco 4xAA sui motori).
 
-### 3 Apertura dell'Interfaccia Web HTML
-1 - Apri il file `map.html` direttamente sul browser del tuo PC/Mac.
+### 3 Apertura dell'Interfaccia Web HTML 
+1 - Apri il file `map.html` direttamente sul browser del tuo PC/Mac. 
+[![Modello 3D Interattivo](https://img.shields.io/badge/🧊_Vedi_Pagina-00d4ff?style=for-the-badge&logo=three.js&logoColor=white)](https://lucaeffe03.github.io/4WD-SLAM-Radar-2D-Robot-Car/map.html)
+
    *(Nota per gli utenti Safari su Mac: dal menu in alto `Sviluppo`, abilita "Disabilita restrizioni sui file locali" per consentire alla pagina locale di comunicare via HTTP con l'IP del robot, oppure utilizza Google Chrome).*
 
 2 - Nella barra in alto a sinistra della pagina web, incolla l'**indirizzo IP** del robot nell'apposita casella di testo e clicca su **"Connetti Wi-Fi"**.
